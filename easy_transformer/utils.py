@@ -13,7 +13,9 @@ from huggingface_hub import hf_hub_download
 import re
 from functools import lru_cache
 
-CACHE_DIR = transformers.TRANSFORMERS_CACHE
+from huggingface_hub.constants import HF_HUB_CACHE
+
+CACHE_DIR = HF_HUB_CACHE
 import json
 
 def download_file_from_hf(repo_name, file_name, subfolder=".", cache_dir=CACHE_DIR, force_is_torch=False):
