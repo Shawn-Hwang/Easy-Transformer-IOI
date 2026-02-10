@@ -698,6 +698,7 @@ class IOIDatasetFR:
         ioi_prompts_for_word_idxs=None,
         prepend_bos=False,
         manual_word_idx=None,
+        seq_len=None,  # Force a specific sequence length (pad/truncate to this)
     ):
         """
         ioi_prompts_for_word_idxs:
@@ -803,9 +804,23 @@ class IOIDatasetFR:
             (self.tokenizer.bos_token if prepend_bos else "") + prompt["text"]
             for prompt in self.ioi_prompts
         ]
-        self.toks = torch.Tensor(self.tokenizer(texts, padding=True).input_ids).type(
-            torch.int
-        )
+        
+        # Tokenize with optional fixed sequence length for path patching compatibility
+        if seq_len is not None:
+            self.toks = torch.Tensor(
+                self.tokenizer(
+                    texts, 
+                    padding="max_length", 
+                    max_length=seq_len, 
+                    truncation=True
+                ).input_ids
+            ).type(torch.int)
+        else:
+            self.toks = torch.Tensor(self.tokenizer(texts, padding=True).input_ids).type(
+                torch.int
+            )
+        
+        self.seq_len = seq_len  # Store for use in gen_flipped_prompts
 
         if ioi_prompts_for_word_idxs is None:
             ioi_prompts_for_word_idxs = self.ioi_prompts
@@ -916,6 +931,7 @@ class IOIDatasetFR:
             ioi_prompts_for_word_idxs=flipped_prompts if flip[0] == "RAND" else None,
             prepend_bos=self.prepend_bos,
             manual_word_idx=self.word_idx,
+            seq_len=self.toks.shape[1],  # Match sequence length for path patching
         )
         return flipped_ioi_dataset
 
@@ -929,6 +945,7 @@ class IOIDatasetFR:
             if self.prefixes is not None
             else self.prefixes,
             ioi_prompts_for_word_idxs=self.ioi_prompts.copy(),
+            seq_len=getattr(self, 'seq_len', None),
         )
         return copy_ioi_dataset
 
@@ -941,6 +958,7 @@ class IOIDatasetFR:
             prompts=sliced_prompts,
             prefixes=self.prefixes,
             prepend_bos=self.prepend_bos,
+            seq_len=getattr(self, 'seq_len', None),
         )
         return sliced_dataset
 
